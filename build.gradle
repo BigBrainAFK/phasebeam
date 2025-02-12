@@ -1,0 +1,24 @@
+buildscript {
+    repositories {
+    	google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.8.0'
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    tasks.withType(JavaCompile) {
+        options.compilerArgs << "-Xlint:unchecked" << "-Xlint:deprecation"
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.layout.buildDirectory
+}

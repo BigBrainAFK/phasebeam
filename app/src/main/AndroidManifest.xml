@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    android:versionCode="1"
+    android:versionName="1.0"
+    package="com.android.phasebeam">
+    <uses-feature android:name="android.software.live_wallpaper" android:required="true"/>
+    <uses-feature android:glEsVersion="0x00020000" android:required="true" />
+    <application
+        android:label="@string/wallpaper_label"
+        android:icon="@drawable/icon">
+        <service
+            android:label="@string/wallpaper_label"
+            android:name=".PhaseBeamWallpaper"
+            android:permission="android.permission.BIND_WALLPAPER"
+            android:launchMode="singleInstance"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.wallpaper.WallpaperService"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.service.wallpaper"
+                android:resource="@xml/wallpaper"/>
+        </service>
+    </application>
+</manifest>
