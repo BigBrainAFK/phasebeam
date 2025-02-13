@@ -1,6 +1,13 @@
-varying lowp vec4 color;
+precision lowp float;
+
+attribute vec2 aPosition;
+attribute vec3 aColor;
+
+uniform float uXOffset;
+
+varying vec3 vColor;
 
 void main() {
-    color = ATTRIB_color;
-    gl_Position = vec4(ATTRIB_position.x + ATTRIB_offsetX/3.5, ATTRIB_position.y, 0.0, 1.0);
+    gl_Position = vec4(aPosition.x + uXOffset / 3.5, aPosition.y, 0.0, 1.0);
+    vColor = aColor;
 }
