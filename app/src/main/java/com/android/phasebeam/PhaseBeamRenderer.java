@@ -25,6 +25,7 @@ public class PhaseBeamRenderer implements GLSurfaceView.Renderer
         private final ParticleManager particleManager = new ParticleManager();
         private int densityDPI;
         private long startTime;
+        private int redrawTime = 33;
     //endregion
 
     //region OpenGL ES2.0 Data
@@ -34,7 +35,7 @@ public class PhaseBeamRenderer implements GLSurfaceView.Renderer
         private int beamProgramId;
 
         // Vertex Buffer Object (VBO)
-        private int vboId;
+        private int backgroundVboId;
         private int dotVboId;
         private int beamVboId;
 
@@ -66,34 +67,9 @@ public class PhaseBeamRenderer implements GLSurfaceView.Renderer
             GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE);
 
             try {
-                backgroundProgramId = setupProgram(R.raw.bg_vs, R.raw.bg_fs);
+                setupBackground();
 
-                // Create VBO and upload vertex data
-                int[] buffers = new int[3];
-                GLES20.glGenBuffers(3, buffers, 0);
-                vboId = buffers[0];
-
-                GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vboId);
-                GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, BackgroundManager.vertexData.length * 4,
-                        FloatBuffer.wrap(BackgroundManager.vertexData), GLES20.GL_STATIC_DRAW);
-
-                particleProgramId = setupProgram(R.raw.dot_vs, R.raw.dot_fs);
-
-                // Load particle texture
-                dotTextureId = loadTexture(R.drawable.dot);
-                beamTextureId = loadTexture(R.drawable.beam);
-
-                // Create particle VBO
-                dotVboId = buffers[1];
-                beamVboId = buffers[2];
-
-                GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, dotVboId);
-                GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, particleManager.getParticleArrayDataLength(),
-                        FloatBuffer.wrap(particleManager.getParticleData()), GLES20.GL_DYNAMIC_DRAW);
-
-                GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, beamVboId);
-                GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, particleManager.getParticleArrayDataLength(),
-                        FloatBuffer.wrap(particleManager.getBeamData()), GLES20.GL_DYNAMIC_DRAW);
+                setupParticles();
             }
             catch (Exception ignored) {}
         }
@@ -123,15 +99,10 @@ public class PhaseBeamRenderer implements GLSurfaceView.Renderer
         @Override
         public void onDrawFrame(GL10 gl)
         {
-            // Some older Android images don't limit to 60FPS themselves
-            long endTime = System.currentTimeMillis();
-            long dt = endTime - startTime;
-            if (dt < 33 && dt > 0)
+            long dt = System.currentTimeMillis() - startTime;
+            if (dt < redrawTime)
             {
-                try {
-                    Thread.sleep(33 - dt);
-                }
-                catch (Exception ignored) {}
+               return;
             }
             startTime = System.currentTimeMillis();
 
@@ -153,19 +124,65 @@ public class PhaseBeamRenderer implements GLSurfaceView.Renderer
     //endregion
 
     //region Drawing functions
+        private void setupBackground()
+        {
+            backgroundProgramId = setupProgram(R.raw.bg_vs, R.raw.bg_fs);
+
+            // Create VBO and upload vertex data
+            int[] buffers = new int[1];
+            GLES20.glGenBuffers(1, buffers, 0);
+            backgroundVboId = buffers[0];
+
+            GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, backgroundVboId);
+            GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, BackgroundManager.vertexData.length * 4,
+                    FloatBuffer.wrap(BackgroundManager.vertexData), GLES20.GL_STATIC_DRAW);
+
+            // position
+            GLES20.glEnableVertexAttribArray(0);
+
+            // color
+            GLES20.glEnableVertexAttribArray(1);
+        }
+
+        private void setupParticles()
+        {
+            particleProgramId = setupProgram(R.raw.dot_vs, R.raw.dot_fs);
+
+            // Create VBO and upload vertex data
+            int[] buffers = new int[2];
+            GLES20.glGenBuffers(2, buffers, 0);
+
+            // Load particle texture
+            dotTextureId = loadTexture(R.drawable.dot);
+            beamTextureId = loadTexture(R.drawable.beam);
+
+            // Create particle VBO
+            dotVboId = buffers[0];
+            beamVboId = buffers[1];
+
+            GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, dotVboId);
+            GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, particleManager.getParticleArrayDataLength(),
+                    FloatBuffer.wrap(particleManager.getParticleData()), GLES20.GL_DYNAMIC_DRAW);
+
+            GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, beamVboId);
+            GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, particleManager.getParticleArrayDataLength(),
+                    FloatBuffer.wrap(particleManager.getBeamData()), GLES20.GL_DYNAMIC_DRAW);
+
+            // Pass float x, y and z
+            GLES20.glEnableVertexAttribArray(0);
+        }
+
         private void drawBackground()
         {
             GLES20.glUseProgram(backgroundProgramId);
 
             // Bind VBO and enable vertex attributes
-            GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vboId);
+            GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, backgroundVboId);
 
             // position
-            GLES20.glEnableVertexAttribArray(0);
             GLES20.glVertexAttribPointer(0, 2, GLES20.GL_FLOAT, false, 20, 0);
 
             // color
-            GLES20.glEnableVertexAttribArray(1);
             GLES20.glVertexAttribPointer(1, 3, GLES20.GL_FLOAT, false, 20, 8);
 
             // xOffset
@@ -184,7 +201,6 @@ public class PhaseBeamRenderer implements GLSurfaceView.Renderer
                                         FloatBuffer.wrap(particleData));
 
             // Pass float x, y and z
-            GLES20.glEnableVertexAttribArray(0);
             GLES20.glVertexAttribPointer(0, 3, GLES20.GL_FLOAT, false, 12, 0);
 
             // Pass view matrix
