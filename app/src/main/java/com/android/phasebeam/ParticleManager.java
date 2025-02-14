@@ -214,17 +214,13 @@ public class ParticleManager
 
     public void tickXOffset()
     {
+        oldXOffset = newXOffset;
         newXOffset = xOffset * 2;
 
         if (newXOffset != oldXOffset)
         {
             backgroundXOffset = -xOffset / 2.0f;
         }
-    }
-
-    public void finishXOffseTick()
-    {
-        oldXOffset = newXOffset;
     }
 
     private float boundRandom(float min, float max)
