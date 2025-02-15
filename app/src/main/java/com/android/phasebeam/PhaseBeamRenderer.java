@@ -113,16 +113,13 @@ public class PhaseBeamRenderer implements GLSurfaceView.Renderer
         {
             GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
 
-            try {
-                particleManager.tickXOffset();
-                drawBackground();
+            particleManager.tickXOffset();
+            drawBackground();
 
-                // Update and draw dots
-                particleManager.updateParticles();
-                drawParticle(particleManager.getParticleData(), dotVboId, dotTextureId);
-                drawParticle(particleManager.getBeamData(), beamVboId, beamTextureId);
-            }
-            catch (Exception ignored) {}
+            // Update and draw dots
+            particleManager.updateParticles();
+            drawParticle(particleManager.getParticleData(), dotVboId, dotTextureId);
+            drawParticle(particleManager.getBeamData(), beamVboId, beamTextureId);
         }
     //endregion
 
