@@ -8,12 +8,16 @@ import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.opengl.Matrix;
+import android.os.Build;
+import android.os.SystemClock;
 import android.util.Log;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 
 import javax.microedition.khronos.egl.EGLConfig;
@@ -27,6 +31,7 @@ public class PhaseBeamRenderer implements GLSurfaceView.Renderer
         private final Context context;
         private final ParticleManager particleManager = new ParticleManager();
         private int densityDPI;
+        private long startTime = SystemClock.uptimeMillis();
     //endregion
 
     //region OpenGL ES2.0 Data
@@ -111,13 +116,17 @@ public class PhaseBeamRenderer implements GLSurfaceView.Renderer
         @Override
         public void onDrawFrame(GL10 gl)
         {
+            long endTime = SystemClock.uptimeMillis();
+            long deltaTime = endTime - startTime;
+            startTime = SystemClock.uptimeMillis();
+
             GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
 
             particleManager.tickXOffset();
             drawBackground();
 
             // Update and draw dots
-            particleManager.updateParticles();
+            particleManager.updateParticles(deltaTime);
             drawParticle(particleManager.getParticleData(), dotVboId, dotTextureId);
             drawParticle(particleManager.getBeamData(), beamVboId, beamTextureId);
         }
@@ -135,15 +144,19 @@ public class PhaseBeamRenderer implements GLSurfaceView.Renderer
 
             Log.d(TAG, "background position location: " + aBackgroundPositionLocation);
             Log.d(TAG, "background color location: " + aBackgroundColorLocation);
+            Log.d(TAG, "background offset location: " + uBackgroundXOffsetLocation);
 
             // Create VBO and upload vertex data
             int[] buffers = new int[1];
             GLES20.glGenBuffers(1, buffers, 0);
             backgroundVboId = buffers[0];
 
-            GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, backgroundVboId);
-            GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, BackgroundManager.vertexData.length * 4,
-                    FloatBuffer.wrap(BackgroundManager.vertexData), GLES20.GL_STATIC_DRAW);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.GINGERBREAD)
+            {
+                GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, backgroundVboId);
+                GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, BackgroundManager.vertexData.length * 4,
+                        FloatBuffer.wrap(BackgroundManager.vertexData), GLES20.GL_STATIC_DRAW);
+            }
 
             // position
             GLES20.glEnableVertexAttribArray(aBackgroundPositionLocation);
@@ -181,13 +194,17 @@ public class PhaseBeamRenderer implements GLSurfaceView.Renderer
             dotVboId = buffers[0];
             beamVboId = buffers[1];
 
-            GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, dotVboId);
-            GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, particleManager.getParticleArrayDataLength(),
-                    FloatBuffer.wrap(particleManager.getParticleData()), GLES20.GL_DYNAMIC_DRAW);
 
-            GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, beamVboId);
-            GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, particleManager.getParticleArrayDataLength(),
-                    FloatBuffer.wrap(particleManager.getBeamData()), GLES20.GL_DYNAMIC_DRAW);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.GINGERBREAD)
+            {
+                GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, dotVboId);
+                GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, particleManager.getParticleArrayDataSize(),
+                        FloatBuffer.wrap(particleManager.getParticleData()), GLES20.GL_DYNAMIC_DRAW);
+
+                GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, beamVboId);
+                GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, particleManager.getParticleArrayDataSize(),
+                        FloatBuffer.wrap(particleManager.getBeamData()), GLES20.GL_DYNAMIC_DRAW);
+            }
 
             // Pass float x, y and z
             GLES20.glEnableVertexAttribArray(aParticlePositionLocation);
@@ -197,16 +214,45 @@ public class PhaseBeamRenderer implements GLSurfaceView.Renderer
         {
             GLES20.glUseProgram(backgroundProgramId);
 
-            // Bind VBO and enable vertex attributes
-            GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, backgroundVboId);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.GINGERBREAD)
+            {
+                // Bind VBO and enable vertex attributes
+                GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, backgroundVboId);
 
-            // position
-            GLES20.glEnableVertexAttribArray(aBackgroundPositionLocation);
-            GLES20.glVertexAttribPointer(aBackgroundPositionLocation, 2, GLES20.GL_FLOAT, false, 20, 0);
+                int[] bufferSize = new int[1];
+                GLES20.glGetBufferParameteriv(GLES20.GL_ARRAY_BUFFER, GLES20.GL_BUFFER_SIZE, bufferSize, 0);
 
-            // color
-            GLES20.glEnableVertexAttribArray(aBackgroundColorLocation);
-            GLES20.glVertexAttribPointer(aBackgroundColorLocation, 3, GLES20.GL_FLOAT, false, 20, 8);
+                if (bufferSize[0] == 0) {
+                    ByteBuffer nativeByteBuffer = ByteBuffer.allocateDirect(BackgroundManager.vertexDataSize);
+                    nativeByteBuffer.order(ByteOrder.nativeOrder());
+
+                    FloatBuffer backgroundVertexDataBuffer = nativeByteBuffer.asFloatBuffer();
+                    backgroundVertexDataBuffer.put(BackgroundManager.vertexData).position(0);
+
+                    GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, BackgroundManager.vertexDataSize,
+                            backgroundVertexDataBuffer, GLES20.GL_STATIC_DRAW);
+                }
+
+                // position
+                GLES20.glVertexAttribPointer(aBackgroundPositionLocation, 2, GLES20.GL_FLOAT, false, 20, 0);
+
+                // color
+                GLES20.glVertexAttribPointer(aBackgroundColorLocation, 3, GLES20.GL_FLOAT, false, 20, 8);
+            }
+            else
+            {
+                ByteBuffer nativeByteBuffer = ByteBuffer.allocateDirect(BackgroundManager.vertexDataSize);
+                nativeByteBuffer.order(ByteOrder.nativeOrder());
+
+                FloatBuffer backgroundVertexDataBuffer = nativeByteBuffer.asFloatBuffer();
+                backgroundVertexDataBuffer.put(BackgroundManager.vertexData).position(0);
+
+                // position x, y
+                GLES20.glVertexAttribPointer(aBackgroundPositionLocation, 2, GLES20.GL_FLOAT, false, 20, backgroundVertexDataBuffer);
+
+                // color r, g, b
+                GLES20.glVertexAttribPointer(aBackgroundColorLocation, 3, GLES20.GL_FLOAT, false, 20, backgroundVertexDataBuffer.position(2));
+            }
 
             // xOffset
             GLES20.glUniform1f(uBackgroundXOffsetLocation, particleManager.backgroundXOffset);
@@ -219,13 +265,37 @@ public class PhaseBeamRenderer implements GLSurfaceView.Renderer
             // Render particles
             GLES20.glUseProgram(particleProgramId);
 
-            GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vboId);
-            GLES20.glBufferSubData(GLES20.GL_ARRAY_BUFFER, 0, particleManager.getParticleArrayDataLength(),
-                                        FloatBuffer.wrap(particleData));
+            ByteBuffer nativeByteBuffer = ByteBuffer.allocateDirect(particleManager.getParticleArrayDataSize());
+            nativeByteBuffer.order(ByteOrder.nativeOrder());
 
-            // Pass float x, y and z
-            GLES20.glEnableVertexAttribArray(aParticlePositionLocation);
-            GLES20.glVertexAttribPointer(aParticlePositionLocation, 3, GLES20.GL_FLOAT, false, 12, 0);
+            FloatBuffer particleVertexDataBuffer = nativeByteBuffer.asFloatBuffer();
+            particleVertexDataBuffer.put(particleData).position(0);
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.GINGERBREAD)
+            {
+                GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vboId);
+
+                int[] bufferSize = new int[1];
+                GLES20.glGetBufferParameteriv(GLES20.GL_ARRAY_BUFFER, GLES20.GL_BUFFER_SIZE, bufferSize, 0);
+
+                if (bufferSize[0] == 0 || bufferSize[0] < particleManager.getParticleArrayDataSize())
+                {
+                    GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, particleManager.getParticleArrayDataSize(),
+                            particleVertexDataBuffer, GLES20.GL_STATIC_DRAW);
+                }
+                else
+                {
+                    GLES20.glBufferSubData(GLES20.GL_ARRAY_BUFFER, 0, particleManager.getParticleArrayDataSize(), particleVertexDataBuffer);
+                }
+
+                // Pass float x, y and z
+                GLES20.glVertexAttribPointer(aParticlePositionLocation, 3, GLES20.GL_FLOAT, false, 12, 0);
+            }
+            else
+            {
+                // Pass float x, y and z
+                GLES20.glVertexAttribPointer(aParticlePositionLocation, 3, GLES20.GL_FLOAT, false, 12, particleVertexDataBuffer);
+            }
 
             // Pass view matrix
             GLES20.glUniformMatrix4fv(uParticleMVPMatrixLocation, 1, false, mvpMatrix, 0);

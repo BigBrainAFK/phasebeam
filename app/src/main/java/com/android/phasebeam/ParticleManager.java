@@ -29,7 +29,7 @@ public class ParticleManager
         private final int particleCount = 26;
         private final int particlePropertyCount = 3;
         private final int particleArrayLength = particleCount * particlePropertyCount;
-        private final int particleArrayDataLength = particleArrayLength * 4;
+        private final int particleArrayDataSize = particleArrayLength * 4;
         private final float[] particleData = new float[particleArrayLength];
         private final float[] beamData = new float[particleArrayLength];
     //endregion
@@ -47,9 +47,9 @@ public class ParticleManager
         initializeParticles();
     }
 
-    public int getParticleArrayDataLength()
+    public int getParticleArrayDataSize()
     {
-        return this.particleArrayDataLength;
+        return this.particleArrayDataSize;
     }
 
     public float[] getParticleData()
@@ -141,8 +141,10 @@ public class ParticleManager
         }
     }
 
-    public void updateParticles()
+    public void updateParticles(long deltaTime)
     {
+        float deltaTimeFactor = deltaTime / 66.0f; // This adjusts it to the designed 15fps or so
+
         for (int i = 0; i < particleCount; i++)
         {
             int index = i * particlePropertyCount;
@@ -174,7 +176,7 @@ public class ParticleManager
                 }
                 else
                 {
-                    beam.y = beam.y + 0.000160f * beam.z;
+                    beam.y += 0.000160f * deltaTimeFactor * beam.z;
                 }
 
                 if (particle.y > 1.25f)
@@ -184,11 +186,11 @@ public class ParticleManager
                 }
                 else
                 {
-                    particle.y = particle.y + 0.00022f * particle.z;
+                    particle.y += 0.00022f * deltaTimeFactor * particle.z;
                 }
             }
 
-            beam.x = beam.x + 0.0001f * beam.z;
+            beam.x += 0.0001f * deltaTimeFactor * beam.z;
 
             float[] updatedRawBeamData = beam.toFloatArray();
             System.arraycopy(updatedRawBeamData, 0, beamData, index, particlePropertyCount);
@@ -203,7 +205,7 @@ public class ParticleManager
                 beam.z = beamData[2];
             }
 
-            particle.x = particle.x + 0.0001560f * beam.z;
+            particle.x += 0.0001560f * deltaTimeFactor * beam.z;
 
             float[] updatedRawParticleData = particle.toFloatArray();
             System.arraycopy(updatedRawParticleData, 0, particleData, index, particlePropertyCount);

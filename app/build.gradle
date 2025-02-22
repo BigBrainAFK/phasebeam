@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId 'com.android.phasebeam'
-        minSdk 9
+        minSdk 8
         targetSdk 35
         versionCode 1
         versionName '1.2'
